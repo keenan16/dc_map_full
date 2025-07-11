@@ -26,6 +26,7 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
@@ -38,12 +39,12 @@ class MyApp extends StatelessWidget {
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
+
   @override
   State<MapScreen> createState() => _MapScreenState();
 }
 
 class _MapScreenState extends State<MapScreen> {
-  String? lastAddedId;
   late final DateTime _appStartTime;
   final Set<String> _animatedPinIds = {};
   final MapController _mapController = MapController();
@@ -52,36 +53,33 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   void initState() {
-    _appStartTime = DateTime.now();
     super.initState();
+    _appStartTime = DateTime.now();
     _subscribeToPinUpdates();
   }
 
   void _subscribeToPinUpdates() {
-    FirebaseFirestore.instance.collection('registrations').snapshots().listen(
-        (snapshot) {
+    FirebaseFirestore.instance
+        .collection('registrations')
+        .snapshots()
+        .listen((snapshot) {
       final newMarkers = snapshot.docs.where((doc) {
         final data = doc.data();
-        final location = data['location'];
-        final timestamp = data['timestamp'];
-
-        return location != null &&
-            location['lat'] != null &&
-            location['lng'] != null &&
-            timestamp != null;
+        // *** NEW ‑‑ top‑level lat/lng ***
+        return data['lat'] != null && data['lng'] != null && data['timestamp'] != null;
       }).map<Marker>((doc) {
         final data = doc.data();
         final docId = doc.id;
-        final loc = data['location'];
-        final timestamp = (data['timestamp'] as Timestamp).toDate();
+        final double lat = (data['lat'] as num).toDouble();
+        final double lng = (data['lng'] as num).toDouble();
+        final DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
 
-        final isNew = timestamp.isAfter(_appStartTime) &&
-            !_animatedPinIds.contains(docId);
-
+        final bool isNew =
+            timestamp.isAfter(_appStartTime) && !_animatedPinIds.contains(docId);
         if (isNew) _animatedPinIds.add(docId);
 
         return Marker(
-          point: LatLng(loc['lat'], loc['lng']),
+          point: LatLng(lat, lng),
           width: 40,
           height: 40,
           child: isNew
@@ -90,9 +88,7 @@ class _MapScreenState extends State<MapScreen> {
         );
       }).toList();
 
-      setState(() {
-        _markers = newMarkers;
-      });
+      setState(() => _markers = newMarkers);
 
       if (_markers.isNotEmpty) {
         _mapController.move(_markers.last.point, _mapController.zoom);
